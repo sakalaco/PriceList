@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>لیست محصولات</title>
+  <link rel="stylesheet" href="https://cdn.fontcdn.ir/Font/Vazir/Vazir.css">
+  <style>
+    body { font-family: 'Vazir', sans-serif; direction: rtl; padding: 30px; background: #f9f9f9; }
+    h2 { margin-bottom: 20px; }
+    .filters { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; }
+    .filter-group { display: flex; flex-direction: column; }
+    .filter-group span { font-weight: bold; margin-bottom: 5px; }
+    .filter-option { 
+      display: inline-block; 
+      padding: 5px 15px; 
+      border: 1px solid #ccc; 
+      border-radius: 8px; 
+      margin: 3px; 
+      cursor: pointer; 
+      transition: 0.2s;
+      background: white;
+    }
+    .filter-option.active { background: #007bff; color: white; border-color: #007bff; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f0f0f0; }
+    #reset-btn {
+      background: #dc3545;
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    #reset-btn:hover { background: #c82333; }
+  </style>
+</head>
+<body>
+
+<h2>📋 لیست محصولات</h2>
+
+<button id="reset-btn">Reset Filters</button>
+
+<div class="filters">
+  <div class="filter-group" id="filter-category"><span>دسته‌بندی</span></div>
+  <div class="filter-group" id="filter-type"><span>نوع محصول</span></div>
+  <div class="filter-group" id="filter-size"><span>سایز</span></div>
+  <div class="filter-group" id="filter-layer"><span>لایه</span></div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>نام محصول</th>
+      <th>قیمت عمومی</th>
+      <th>قیمت دیجیتال</th>
+      <th>قیمت زیر 1000</th>
+      <th>قیمت کارتنی</th>
+      <th>قیمت درب</th>
+    </tr>
+  </thead>
+  <tbody id="product-list"></tbody>
+</table>
+
+<script>
+  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvY_Dh9wfH7UGfgFOzGhAKwl8nD4lFK9cCHFzTKiu7JfjuZ6QbGAuD_Z_6V9_B_VLvZo21V2kRU4VN/pub?output=csv";
+  let allData = [];
+  let activeFilters = { category: [], type: [], size: [], layer: [] };
+
+  // تابع فرمت کردن اعداد (خالی گذاشتن در صورت متن یا صفر)
+  function formatNumber(num) {
+    if (!num || isNaN(Number(num)) || Number(num) === 0) return "";
+    return Number(num).toLocaleString('fa-IR');
+  }
+
+  fetch(sheetUrl)
+    .then(res => res.text())
+    .then(text => {
+      const rows = text.split("\n").map(r => r.split(","));
+      const headers = rows[0];
+      const data = rows.slice(1).map(r => {
+        let obj = {};
+        headers.forEach((h,i) => obj[h.trim()] = r[i]);
+        return obj;
+      });
+      allData = data;
+      createFilters(allData);
+      renderTable();
+    });
+
+  function createFilters(data) {
+    ["category","type","size","layer"].forEach(key => {
+      const container = document.getElementById("filter-"+key);
+      container.querySelectorAll(".filter-option").forEach(el => el.remove());
+
+      let values = [...new Set(data.map(d => d[key]).filter(Boolean))];
+      values.forEach(v => {
+        let btn = document.createElement("div");
+        btn.className = "filter-option";
+        btn.innerText = v;
+        if (activeFilters[key].includes(v)) btn.classList.add("active");
+        btn.onclick = () => {
+          if (activeFilters[key].includes(v)) {
+            activeFilters[key] = activeFilters[key].filter(x => x!==v);
+          } else {
+            activeFilters[key].push(v);
+          }
+          renderTable();
+        };
+        container.appendChild(btn);
+      });
+    });
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById("product-list");
+    tbody.innerHTML = "";
+
+    let filtered = allData.filter(item => {
+      return Object.keys(activeFilters).every(key => {
+        if (activeFilters[key].length === 0) return true;
+        return activeFilters[key].includes(item[key]);
+      });
+    });
+
+    createFilters(filtered);
+
+    filtered.forEach(item => {
+      let tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.name || ""}</td>
+        <td>${formatNumber(item.price_omomi)}</td>
+        <td>${formatNumber(item.price_digital)}</td>
+        <td>${formatNumber(item.price_1000)}</td>
+        <td>${formatNumber(item.price_box)}</td>
+        <td>${formatNumber(item.door)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById("reset-btn").onclick = () => {
+    activeFilters = { category: [], type: [], size: [], layer: [] };
+    createFilters(allData);
+    renderTable();
+  };
+</script>
+
+</body>
+</html>
